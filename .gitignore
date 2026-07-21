@@ -1,0 +1,19 @@
+# IDEs and Editors
+.vscode/
+.claude/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Large / Compressed Files
+*.zip
+*.msi
+*.tar.gz
+*.rar
+
+# Output / Sandbox Directories
+/sandbox/
+/out/
+/output/
