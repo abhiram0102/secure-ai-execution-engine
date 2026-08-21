@@ -1,42 +1,45 @@
 # production.Dockerfile
-# This Dockerfile builds the entire system into a single container for AWS deployment!
 FROM ubuntu:22.04
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+
+# ── system packages ────────────────────────────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-pip \
     bubblewrap \
-    libseccomp-dev \
-    libcap-dev \
-    build-essential \
+    libcap2 \
+    libseccomp2 python3-seccomp \
+    ca-certificates openssl \
     && rm -rf /var/lib/apt/lists/*
+# ── Python packages ────────────────────────────────────────────────────────────
+RUN pip3 install --no-cache-dir \
+    psycopg2-binary \
+    pymysql \
+    sqlglot \
+    jsonschema \
+    requests \
+    cryptography
 
 WORKDIR /app
 
-# Copy the advanced sandbox files
-COPY advanced-sandbox/supervisor.py .
-COPY advanced-sandbox/exec_harness.c .
-COPY advanced-sandbox/seccomp_allow.txt .
-COPY advanced-sandbox/landlock_ruleset.json .
+# ── copy project files ─────────────────────────────────────────────────────────
+COPY config/                        ./config/
+COPY core/                          ./core/
+COPY advanced-sandbox/supervisor.py ./advanced-sandbox/
+COPY advanced-sandbox/dispatcher.py ./advanced-sandbox/
+COPY main_app.py                    ./
+COPY run_agent_task.py              ./
+COPY agent_tasks/                   ./agent_tasks/
+COPY scripts/                       ./scripts/
+COPY run_production.sh              ./
+
+# dispatcher.py at /opt so the sandbox always finds it at a known path
 COPY advanced-sandbox/dispatcher.py /opt/dispatcher.py
 
-# Copy the Host Application and AI code
-COPY main_app.py .
-COPY ai_code.py .
-COPY run_production.sh .
+RUN chmod +x run_production.sh \
+ && mkdir -p /data/reports /data/uploads /data/models /data/datasets \
+             /var/log/sandbox /srv/exports /etc/bubble-wrap \
+ && ln -s /app /workspace
 
-# Build seccomp BPF from the allow-list
-RUN if command -v scmp >/dev/null 2>&1; then \
-        scmp syscall -d seccomp_allow.txt > /etc/seccomp/default.bin; \
-    else \
-        echo "scmp not found, seccomp filter will need to be built differently"; \
-    fi
-
-# Build exec_harness (the C program that launches bubblewrap)
-RUN gcc -Wall -O2 -o /opt/exec_harness exec_harness.c -lcap -lseccomp
-
-# Make the runner script executable
-RUN chmod +x run_production.sh
-
-# Start the Host Application
 CMD ["./run_production.sh"]

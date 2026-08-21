@@ -1,0 +1,68 @@
+services:
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: enterprise_db
+      POSTGRES_USER: ai_sandbox_user
+      POSTGRES_PASSWORD: sandbox_dev_pw_2026
+    volumes:
+      - ./tests/db_seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ai_sandbox_user -d enterprise_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:5.7
+    environment:
+      MYSQL_DATABASE: enterprise_db
+      MYSQL_USER: ai_sandbox_user
+      MYSQL_PASSWORD: sandbox_dev_pw_2026
+      MYSQL_ROOT_PASSWORD: root_dev_pw_2026
+    volumes:
+      - ./tests/db_seed_mysql.sql:/docker-entrypoint-initdb.d/seed.sql:ro
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "--password=root_dev_pw_2026" ]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+
+  sandbox:
+    build:
+      context: .
+      dockerfile: production.Dockerfile
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      # Docker's default seccomp blocks pivot_root/unshare/mount which bwrap
+      # needs for namespace isolation. Disable it here — fork bombs and process
+      # creation are capped by RLIMIT_NPROC (SANDBOX_MAX_PIDS=32) set in preexec.
+      - seccomp:unconfined
+    restart: unless-stopped
+    container_name: sandbox-daemon
+    env_file: .env
+    environment:
+      DB_PRIMARY_HOST:            postgres
+      DB_PRIMARY_PORT:            "5432"
+      DB_WAREHOUSE_HOST:          mysql
+      DB_WAREHOUSE_PORT:          "3306"
+      DB_WAREHOUSE_SANDBOX_MOUNT: /tmp/mysql
+    volumes:
+      # Source code — changes take effect after docker compose restart sandbox
+      - ./core:/app/core
+      - ./advanced-sandbox:/app/advanced-sandbox
+      - ./config:/app/config
+      - ./main_app.py:/app/main_app.py
+      # Dev/test files — NOT baked into the production image
+      - ./tests:/app/tests
+      - ./host_data:/app/host_data:ro
+      - ./agent_tasks:/app/agent_tasks:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy

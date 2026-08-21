@@ -1,0 +1,33 @@
+{
+    "filesystem": {
+        "allowed": [
+            {"host_path": "./host_data/reports",  "sandbox_path": "/mnt/reports",     "access": ["read_file","read_dir"]},
+            {"host_path": "./host_data/uploads",  "sandbox_path": "/mnt/uploads",     "access": ["read_file","write_file","read_dir","write_dir"]},
+            {"host_path": "./host_data/models",   "sandbox_path": "/mnt/models",      "access": ["read_file","read_dir"]},
+            {"host_path": "./host_data/datasets", "sandbox_path": "/mnt/datasets",    "access": ["read_file","read_dir"]},
+            {"host_path": "./host_data/logs",     "sandbox_path": "/var/log/sandbox", "access": ["read_file","write_file","read_dir","write_dir"]},
+            {"host_path": "./host_data/exports",  "sandbox_path": "/mnt/exports",     "access": ["read_file","write_file","read_dir","write_dir","remove_file"]},
+            {"host_path": "/etc/ssl/certs",       "sandbox_path": "/etc/ssl/certs",   "access": ["read_file","read_dir"]}
+        ]
+    },
+
+    "database": {
+        "enabled": true,
+        "connection": "primary",
+        "allowed_tables": {
+            "employees":   ["SELECT"],
+            "departments": ["SELECT"],
+            "reports":     ["SELECT","INSERT","UPDATE"],
+            "audit_log":   ["INSERT"]
+        }
+    },
+
+    "network": {
+        "enabled": true,
+        "allowed_domains": [
+            {"domain": "api.openai.com",               "methods": ["POST"], "routes": ["/v1/chat/completions","/v1/embeddings"], "protocols": ["https"]},
+            {"domain": "*.stripe.com",                 "methods": ["GET","POST"], "routes": ["*"], "protocols": ["https"]},
+            {"domain": "jsonplaceholder.typicode.com", "methods": ["GET"], "routes": ["*"], "protocols": ["https"]}
+        ]
+    }
+}

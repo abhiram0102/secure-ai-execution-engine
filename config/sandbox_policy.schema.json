@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SandboxPolicy",
+  "description": "Per-task access control rules: what this task may read, write, query, or reach. HOW the sandbox operates (security settings, resource limits, TLS requirements) is in the system .env — not here. A task caller controls what; the operator controls how.",
+  "type": "object",
+  "required": ["filesystem", "database", "network"],
+  "additionalProperties": false,
+  "properties": {
+
+    "filesystem": {
+      "type": "object",
+      "required": ["allowed"],
+      "additionalProperties": false,
+      "properties": {
+        "allowed": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["host_path", "sandbox_path", "access"],
+            "additionalProperties": false,
+            "properties": {
+              "host_path":    { "type": "string", "minLength": 1 },
+              "sandbox_path": { "type": "string", "minLength": 1, "pattern": "^/" },
+              "access": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "enum": ["read_file","write_file","read_dir","write_dir","remove_file","remove_dir","execute"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "database": {
+      "type": "object",
+      "required": ["enabled"],
+      "additionalProperties": false,
+      "properties": {
+        "enabled":    { "type": "boolean" },
+        "connection": { "type": "string", "minLength": 1 },
+        "allowed_tables": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["SELECT","INSERT","UPDATE","DELETE"] }
+          }
+        }
+      }
+    },
+
+    "network": {
+      "type": "object",
+      "required": ["enabled", "allowed_domains"],
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "allowed_domains": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["domain", "protocols"],
+            "additionalProperties": false,
+            "properties": {
+              "domain":    { "type": "string", "minLength": 1 },
+              "protocols": {
+                "type": "array", "minItems": 1,
+                "items": { "type": "string", "enum": ["http","https","ws","wss"] }
+              },
+              "methods": {
+                "type": "array",
+                "items": { "type": "string", "enum": ["GET","POST","PUT","PATCH","DELETE","HEAD","OPTIONS"] }
+              },
+              "routes": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      }
+    }
+
+  }
+}
